@@ -1,0 +1,65 @@
+---
+name: Build
+on: push
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/metadata-action@v5
+        id: meta
+        with:
+          images: YOUR_IMAGE
+      # - name: Cache var-cache-apt
+      #   uses: actions/cache@v3
+      #   with:
+      #     path: var-cache-apt
+      #     key: var-cache-apt-${{ hashFiles('Dockerfile') }}
+      # - name: Cache var-lib-apt
+      #   uses: actions/cache@v3
+      #   with:
+      #     path: var-lib-apt
+      #     key: var-lib-apt-${{ hashFiles('Dockerfile') }}
+      - name: Cache .next/cache
+        uses: actions/cache@v3
+        with:
+          path: next-cache
+          key: next-cache-${{ hashFiles('yarn.lock') }}
+      - name: yarn cache
+        uses: actions/cache@v3
+        with:
+          path: yarn-cache
+          key: yarn-cache-${{ hashFiles('yarn.lock') }}
+      # - name: inject var-cache-apt into docker
+      #   uses: reproducible-containers/buildkit-cache-dance@v2.1.3
+      #   with:
+      #     cache-source: var-cache-apt
+      #     cache-target: /var/cache/apt
+      # - name: inject var-lib-apt into docker
+      #   uses: reproducible-containers/buildkit-cache-dance@v2.1.3
+      #   with:
+      #     cache-source: var-lib-apt
+      #     cache-target: /var/lib/apt
+      - name: inject yarn cache into docker
+        uses: reproducible-containers/buildkit-cache-dance@v2.1.3
+        with:
+          cache-source: yarn-cache
+          cache-target: /usr/local/share/.cache/yarn/v6
+      - name: inject .next/cache into docker
+        uses: reproducible-containers/buildkit-cache-dance@v2.1.3
+        with:
+          cache-source: next-cache
+          cache-target: /usr/src/app/.next/cache
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          file: Dockerfile
+          push: false
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
